@@ -4,3 +4,7 @@ wandb
 debug.sh
 _temp_videos
 anno
+checkpoint-*
+.cache/
+.gitattributes
+model_config.json

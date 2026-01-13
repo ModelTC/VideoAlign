@@ -166,6 +166,36 @@ def smart_nframes(
     return nframes
 
 
+def _get_video_fps_fallback(video_path: str) -> float:
+    """Get video fps using PyAV or OpenCV as fallback when torchvision info doesn't have it."""
+    try:
+        # Try PyAV first (since torchvision uses pyav backend)
+        import av
+        container = av.open(video_path)
+        video_stream = container.streams.video[0]
+        fps = float(video_stream.average_rate)
+        container.close()
+        if fps > 0:
+            return fps
+    except Exception:
+        pass
+
+    try:
+        # Try OpenCV as backup
+        import cv2
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+        if fps > 0:
+            return float(fps)
+    except Exception:
+        pass
+    logger.error(f"Error getting video fps using PyAV or OpenCV, using default fallback 30.0 fps.")
+
+    # Default fallback
+    return 30.0
+
+
 def _read_video_torchvision(
     ele: dict,
 ) -> torch.Tensor:
@@ -181,11 +211,12 @@ def _read_video_torchvision(
         torch.Tensor: the video tensor with shape (T, C, H, W).
     """
     video_path = ele["video"]
+    # Remove file:// prefix - torchvision doesn't support it (especially for relative paths)
+    if video_path.startswith("file://"):
+        video_path = video_path[7:]
     if version.parse(torchvision.__version__) < version.parse("0.19.0"):
         if "http://" in video_path or "https://" in video_path:
             warnings.warn("torchvision < 0.19.0 does not support http/https video path, please upgrade to 0.19.0.")
-        if "file://" in video_path:
-            video_path = video_path[7:]
     st = time.time()
     video, audio, info = io.read_video(
         video_path,
@@ -195,7 +226,19 @@ def _read_video_torchvision(
         output_format="TCHW",
     )
 
-    total_frames, video_fps = video.size(0), info["video_fps"]
+    total_frames = video.size(0)
+    if total_frames == 0:
+        raise ValueError(
+            f"No frames were read from video: {video_path}. "
+            f"This may be caused by invalid video_start ({ele.get('video_start', 0.0)}) "
+            f"or video_end ({ele.get('video_end', None)}) parameters, or the video file may be corrupted."
+        )
+    # Try to get video_fps from info, use fallback methods if not available
+    if "video_fps" in info:
+        video_fps = info["video_fps"]
+    else:
+        # Fallback: use PyAV or OpenCV to get real fps
+        video_fps = _get_video_fps_fallback(video_path)
     # logger.info(f"torchvision:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s")
     if ele['sample_type'] == 'uniform':
         nframes = smart_nframes(ele, total_frames=total_frames, video_fps=video_fps)
