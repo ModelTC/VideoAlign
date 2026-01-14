@@ -30,9 +30,11 @@ def suff_stats(h, m, epsilon):
             D += 1
     return C, D, Th, Tm, Thm
 
+
 def calc_acc(C, D, Th, Tm, Thm):
     # This function calculates the current accuracy based on the statistics
     return (C + Thm) / (C + D + Th + Tm + Thm)
+
 
 def calc_accuracy_with_ties(h, m):
     """
@@ -46,44 +48,42 @@ def calc_accuracy_with_ties(h, m):
     """
     try:
         C, D, Th, Tm, Thm = suff_stats(h, m, -1)
-        
+
         sorted_pairs = sorted(zip(h, m), key=lambda x: abs(x[1]))
-        
-        acc_star = float('-inf')
+
+        acc_star = float("-inf")
         epsilon_star = 0
         epsilon_curr = -1
 
-        current_stat = {
-            'C': C, 'D': D, 'Th': Th, 'Tm': Tm, 'Thm': Thm
-        }
+        current_stat = {"C": C, "D": D, "Th": Th, "Tm": Tm, "Thm": Thm}
         # print(current_thresholds)
         for hi, mi in sorted_pairs:
             # update the statistics by removing the current pair
             if hi == 0 and abs(mi) < epsilon_curr:
-                current_stat['Thm'] -= 1
+                current_stat["Thm"] -= 1
             elif hi == 0:
-                current_stat['Th'] -= 1
+                current_stat["Th"] -= 1
             elif abs(mi) < epsilon_curr:
-                current_stat['Tm'] -= 1
+                current_stat["Tm"] -= 1
             elif hi * mi > 0:
-                current_stat['C'] -= 1
+                current_stat["C"] -= 1
             else:
-                current_stat['D'] -= 1
+                current_stat["D"] -= 1
 
             # update the epsilon value
             epsilon_curr = abs(mi)
 
             # update the statistics by adding the current pair
             if hi == 0 and abs(mi) <= epsilon_curr:
-                current_stat['Thm'] += 1
+                current_stat["Thm"] += 1
             elif hi == 0:
-                current_stat['Th'] += 1
+                current_stat["Th"] += 1
             elif abs(mi) <= epsilon_curr:
-                current_stat['Tm'] += 1
+                current_stat["Tm"] += 1
             elif hi * mi > 0:
-                current_stat['C'] += 1
+                current_stat["C"] += 1
             else:
-                current_stat['D'] += 1
+                current_stat["D"] += 1
 
             # calculate the new tau value
             acc_curr = calc_acc(**current_stat)
@@ -97,7 +97,7 @@ def calc_accuracy_with_ties(h, m):
     except Exception as e:
         print("Error in tie_calibration:", e)
         return 0
-    
+
 
 def calc_accuracy_without_ties(h, m):
     """
@@ -113,7 +113,7 @@ def calc_accuracy_without_ties(h, m):
 
 if __name__ == "__main__":
     h = [1, -1, 0, 1, -1, 0, 1, -1, 0]
-    
+
     scores_A = [0.9, -0.7, 0.1, 0.8, -0.6, 0.2, 0.7, -0.5, 0.3]
     scores_B = [0.1, -0.8, 0.5, 0.5, -0.3, 0.3, 0.4, -0.4, 0.4]
     m = [a - b for a, b in zip(scores_A, scores_B)]

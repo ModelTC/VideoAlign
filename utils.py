@@ -9,6 +9,7 @@ from transformers import TrainingArguments
 
 ########## DataClass For Configure ##########
 
+
 @dataclass
 class TrainingConfig(TrainingArguments):
     max_length: Optional[int] = None
@@ -30,6 +31,7 @@ class TrainingConfig(TrainingArguments):
 
     save_full_model: Optional[bool] = False
 
+
 @dataclass
 class PEFTLoraConfig:
     lora_enable: bool = False
@@ -45,11 +47,18 @@ class PEFTLoraConfig:
     num_lora_modules: int = -1
 
     def __post_init__(self):
-        if isinstance(self.lora_target_modules, list) and len(self.lora_target_modules) == 1:
+        if (
+            isinstance(self.lora_target_modules, list)
+            and len(self.lora_target_modules) == 1
+        ):
             self.lora_target_modules = self.lora_target_modules[0]
 
-        if isinstance(self.lora_namespan_exclude, list) and len(self.lora_namespan_exclude) == 1:
+        if (
+            isinstance(self.lora_namespan_exclude, list)
+            and len(self.lora_namespan_exclude) == 1
+        ):
             self.lora_namespan_exclude = self.lora_namespan_exclude[0]
+
 
 @dataclass
 class ModelConfig:
@@ -72,7 +81,9 @@ class ModelConfig:
     bnb_4bit_quant_type: Literal["fp4", "nf4"] = "nf4"
     use_bnb_nested_quant: bool = False
     reward_token: Literal["last", "mean", "special"] = "last"
-    loss_type: Literal["bt", "reg", "btt", "margin", "constant_margin", "scaled"] = "regular"
+    loss_type: Literal[
+        "bt", "reg", "btt", "margin", "constant_margin", "scaled"
+    ] = "regular"
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
@@ -84,20 +95,26 @@ class ModelConfig:
         # if isinstance(self.lora_namespan_exclude, list) and len(self.lora_namespan_exclude) == 1:
         #     self.lora_namespan_exclude = self.lora_namespan_exclude[0]
 
+
 ########## Functions for get trainable modules' parameters ##########
+
 
 def maybe_zero_3(param, ignore_status=False, name=None):
     from deepspeed import zero
     from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
+
     if hasattr(param, "ds_id"):
         if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
             if not ignore_status:
-                logging.warning(f"{name}: param.ds_status != ZeroParamStatus.NOT_AVAILABLE: {param.ds_status}")
+                logging.warning(
+                    f"{name}: param.ds_status != ZeroParamStatus.NOT_AVAILABLE: {param.ds_status}"
+                )
         with zero.GatheredParameters([param]):
             param = param.data.detach().cpu().clone()
     else:
         param = param.detach().cpu().clone()
     return param
+
 
 # Borrowed from peft.utils.get_peft_model_state_dict
 def get_peft_state_maybe_zero_3(named_params, bias):
@@ -124,14 +141,19 @@ def get_peft_state_maybe_zero_3(named_params, bias):
     to_return = {k: maybe_zero_3(v, ignore_status=True) for k, v in to_return.items()}
     return to_return
 
+
 def get_peft_state_non_lora_maybe_zero_3(named_params, require_grad_only=True):
     to_return = {k: t for k, t in named_params if "lora_" not in k}
     if require_grad_only:
         to_return = {k: t for k, t in to_return.items() if t.requires_grad}
-    to_return = {k: maybe_zero_3(v, ignore_status=True).cpu() for k, v in to_return.items()}
+    to_return = {
+        k: maybe_zero_3(v, ignore_status=True).cpu() for k, v in to_return.items()
+    }
     return to_return
 
+
 ########## Load Models From Folder ##########
+
 
 def _insert_adapter_name_into_state_dict(
     state_dict: dict[str, torch.Tensor], adapter_name: str, parameter_prefix: str
@@ -143,7 +165,9 @@ def _insert_adapter_name_into_state_dict(
             suffix = key.split(parameter_prefix)[1]
             if "." in suffix:
                 suffix_to_replace = ".".join(suffix.split(".")[1:])
-                key = key.replace(suffix_to_replace, f"{adapter_name}.{suffix_to_replace}")
+                key = key.replace(
+                    suffix_to_replace, f"{adapter_name}.{suffix_to_replace}"
+                )
             else:
                 key = f"{key}.{adapter_name}"
             peft_model_state_dict[key] = val
@@ -154,30 +178,35 @@ def _insert_adapter_name_into_state_dict(
 
 def save_video(tensor, path):
     from torchvision.io import write_video
+
     tensor = tensor * 255.0
     tensor = tensor.permute(0, 2, 3, 1)
     tensor = tensor.clamp(0, 255).byte()
-    write_video(path, tensor, 4, video_codec='h264')
+    write_video(path, tensor, 4, video_codec="h264")
 
 
-def load_model_from_checkpoint(
-    model, checkpoint_dir, checkpoint_step
-):
+def load_model_from_checkpoint(model, checkpoint_dir, checkpoint_step):
     checkpoint_paths = glob.glob(os.path.join(checkpoint_dir, "checkpoint-*"))
     checkpoint_paths.sort(key=lambda x: int(x.split("-")[-1]), reverse=True)
 
     if checkpoint_step is None or checkpoint_step == -1:
         # get the latest checkpoint
         checkpoint_path = checkpoint_paths[0]
-        print(f"===> Checkpoint step is not provided, using the latest checkpoint: {checkpoint_path}")
+        print(
+            f"===> Checkpoint step is not provided, using the latest checkpoint: {checkpoint_path}"
+        )
     else:
         checkpoint_path = os.path.join(checkpoint_dir, f"checkpoint-{checkpoint_step}")
         if checkpoint_path not in checkpoint_paths:
             checkpoint_path = checkpoint_paths[0]
-            print(f"===> Checkpoint step {checkpoint_step} not found, using the latest checkpoint: {checkpoint_path}")
+            print(
+                f"===> Checkpoint step {checkpoint_step} not found, using the latest checkpoint: {checkpoint_path}"
+            )
         else:
-            print(f"===> Checkpoint step {checkpoint_step} found, using the specified checkpoint: {checkpoint_path}")
-    
+            print(
+                f"===> Checkpoint step {checkpoint_step} found, using the specified checkpoint: {checkpoint_path}"
+            )
+
     checkpoint_step = checkpoint_path.split("checkpoint-")[-1].split("/")[0]
 
     full_ckpt = os.path.join(checkpoint_path, "model.pth")
@@ -190,8 +219,10 @@ def load_model_from_checkpoint(
         lora_state_dict = safetensors.torch.load_file(lora_ckpt)
         non_lora_state_dict = torch.load(non_lora_ckpt, map_location="cpu")
 
-        lora_state_dict = _insert_adapter_name_into_state_dict(lora_state_dict, adapter_name="default", parameter_prefix="lora_")
-        
+        lora_state_dict = _insert_adapter_name_into_state_dict(
+            lora_state_dict, adapter_name="default", parameter_prefix="lora_"
+        )
+
         model_state_dict = model.state_dict()
         model_state_dict.update(non_lora_state_dict)
         model_state_dict.update(lora_state_dict)
