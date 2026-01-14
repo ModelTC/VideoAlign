@@ -81,9 +81,9 @@ class ModelConfig:
     bnb_4bit_quant_type: Literal["fp4", "nf4"] = "nf4"
     use_bnb_nested_quant: bool = False
     reward_token: Literal["last", "mean", "special"] = "last"
-    loss_type: Literal[
-        "bt", "reg", "btt", "margin", "constant_margin", "scaled"
-    ] = "regular"
+    loss_type: Literal["bt", "reg", "btt", "margin", "constant_margin", "scaled"] = (
+        "regular"
+    )
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:

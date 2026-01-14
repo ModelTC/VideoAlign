@@ -283,9 +283,9 @@ class PartialEmbeddingUpdateCallback(TrainerCallback):
         index_no_updates = torch.ones((len(tokenizer),), dtype=torch.bool)
         index_no_updates[self.special_token_ids] = False
         with torch.no_grad():
-            model.get_input_embeddings().weight[
-                index_no_updates
-            ] = self.orig_embeds_params[index_no_updates]
+            model.get_input_embeddings().weight[index_no_updates] = (
+                self.orig_embeds_params[index_no_updates]
+            )
 
 
 class VideoVLMRewardTrainer(RewardTrainer):
@@ -330,9 +330,7 @@ class VideoVLMRewardTrainer(RewardTrainer):
         eval_dataset = (
             self.eval_dataset[eval_dataset]
             if isinstance(eval_dataset, str)
-            else eval_dataset
-            if eval_dataset is not None
-            else self.eval_dataset
+            else eval_dataset if eval_dataset is not None else self.eval_dataset
         )
         data_collator = lambda features: self.data_collator(
             features, enable_noise=self.enable_noise_in_eval

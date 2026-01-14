@@ -116,9 +116,9 @@ def create_model_and_processor(
         reward_token=model_config.reward_token,
         special_token_ids=special_token_ids,
         torch_dtype=torch_dtype,
-        attn_implementation="flash_attention_2"
-        if not training_args.disable_flash_attn2
-        else "sdpa",
+        attn_implementation=(
+            "flash_attention_2" if not training_args.disable_flash_attn2 else "sdpa"
+        ),
         cache_dir=cache_dir,
         **model_kwargs,
     )

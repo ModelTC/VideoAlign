@@ -65,9 +65,11 @@ def convert_GSB_csv_to_reward_data(
                     "video": f"file://{data_dir}/{example[f'path_A']}",
                     "max_pixels": max_pixels,
                     "fps": fps if num_frames is None else None,
-                    "nframes": min(num_frames, example[f"num_frames_A"])
-                    if num_frames is not None
-                    else None,
+                    "nframes": (
+                        min(num_frames, example[f"num_frames_A"])
+                        if num_frames is not None
+                        else None
+                    ),
                     "sample_type": sample_type,
                 },
                 {
@@ -88,9 +90,11 @@ def convert_GSB_csv_to_reward_data(
                     "video": f"file://{data_dir}/{example[f'path_B']}",
                     "max_pixels": max_pixels,
                     "fps": fps if num_frames is None else None,
-                    "nframes": min(num_frames, example[f"num_frames_B"])
-                    if num_frames is not None
-                    else None,
+                    "nframes": (
+                        min(num_frames, example[f"num_frames_B"])
+                        if num_frames is not None
+                        else None
+                    ),
                     "sample_type": sample_type,
                 },
                 {
@@ -191,15 +195,21 @@ class QWen2VLDataCollator:
                         "type": "video",
                         "video": message[0]["content"][0]["video"],
                         "max_pixels": message[0]["content"][0]["max_pixels"],
-                        "fps": message[0]["content"][0]["fps"]
-                        if "fps" in message[0]["content"][0]
-                        else None,
-                        "nframes": message[0]["content"][0]["nframes"]
-                        if "nframes" in message[0]["content"][0]
-                        else None,
-                        "sample_type": message[0]["content"][0]["sample_type"]
-                        if "sample_type" in message[0]["content"][0]
-                        else "uniform",
+                        "fps": (
+                            message[0]["content"][0]["fps"]
+                            if "fps" in message[0]["content"][0]
+                            else None
+                        ),
+                        "nframes": (
+                            message[0]["content"][0]["nframes"]
+                            if "nframes" in message[0]["content"][0]
+                            else None
+                        ),
+                        "sample_type": (
+                            message[0]["content"][0]["sample_type"]
+                            if "sample_type" in message[0]["content"][0]
+                            else "uniform"
+                        ),
                     },
                     {"type": "text", "text": message[0]["content"][1]["text"]},
                 ],
