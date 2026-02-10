@@ -4,14 +4,12 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import json
-import glob
+
 import pandas as pd
-from tqdm import tqdm
-
 import torch
-
-from inference import VideoVLMRewardInference
 from calc_accuracy import calc_accuracy_with_ties, calc_accuracy_without_ties
+from inference import VideoVLMRewardInference
+from tqdm import tqdm
 
 
 def convert_pair_to_single(df_pair_anno):
@@ -56,9 +54,7 @@ def main():
     device = torch.device("cuda:0")
     dtype = torch.bfloat16
 
-    inferencer = VideoVLMRewardInference(
-        load_from_pretrained, device=device, dtype=dtype
-    )
+    inferencer = VideoVLMRewardInference(load_from_pretrained, device=device, dtype=dtype)
 
     ## 2. load the data and preprocess
     data_dir = "datasets/eval"
@@ -127,17 +123,12 @@ def main():
     results = {}
     for reward_attr in reward_attributes:
         df_pair_pred[f"reward_{reward_attr}"] = (
-            df_pair_pred[f"reward_{reward_attr}_A"]
-            - df_pair_pred[f"reward_{reward_attr}_B"]
+            df_pair_pred[f"reward_{reward_attr}_A"] - df_pair_pred[f"reward_{reward_attr}_B"]
         )
-        df_pair_pred[f"{reward_attr}"] = df_pair_pred[f"{reward_attr}"].map(
-            {"A": 1, "B": -1, "same": 0}
-        )
+        df_pair_pred[f"{reward_attr}"] = df_pair_pred[f"{reward_attr}"].map({"A": 1, "B": -1, "same": 0})
 
         results[f"{reward_attr} Accuracy"] = {
-            "with_ties": calc_accuracy_with_ties(
-                df_pair_pred[f"{reward_attr}"], df_pair_pred[f"reward_{reward_attr}"]
-            ),
+            "with_ties": calc_accuracy_with_ties(df_pair_pred[f"{reward_attr}"], df_pair_pred[f"reward_{reward_attr}"]),
             "without_ties": calc_accuracy_without_ties(
                 df_pair_pred[f"{reward_attr}"], df_pair_pred[f"reward_{reward_attr}"]
             ),

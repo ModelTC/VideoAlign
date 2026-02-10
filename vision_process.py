@@ -20,7 +20,6 @@ from PIL import Image
 from torchvision import io, transforms
 from torchvision.transforms import InterpolationMode
 
-
 logger = logging.getLogger(__name__)
 
 IMAGE_FACTOR = 28
@@ -85,9 +84,7 @@ def smart_resize(
     return h_bar, w_bar
 
 
-def fetch_image(
-    ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACTOR
-) -> Image.Image:
+def fetch_image(ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACTOR) -> Image.Image:
     if "image" in ele:
         image = ele["image"]
     else:
@@ -107,9 +104,7 @@ def fetch_image(
     else:
         image_obj = Image.open(image)
     if image_obj is None:
-        raise ValueError(
-            f"Unrecognized image input, support local path, http url, base64 and PIL.Image, got {image}"
-        )
+        raise ValueError(f"Unrecognized image input, support local path, http url, base64 and PIL.Image, got {image}")
     image = image_obj.convert("RGB")
     ## resize
     if "resized_height" in ele and "resized_width" in ele:
@@ -137,7 +132,7 @@ def fetch_image(
 def smart_nframes(
     ele: dict,
     total_frames: int,
-    video_fps: int | float,
+    video_fps: float,
 ) -> int:
     """calculate the number of frames for video used for model inputs.
 
@@ -157,26 +152,19 @@ def smart_nframes(
     Returns:
         int: the number of frames for video used for model inputs.
     """
-    assert not (
-        "fps" in ele and "nframes" in ele
-    ), "Only accept either `fps` or `nframes`"
+    assert not ("fps" in ele and "nframes" in ele), "Only accept either `fps` or `nframes`"
     if "nframes" in ele:
         nframes = round_by_factor(ele["nframes"], FRAME_FACTOR)
     else:
         fps = ele.get("fps", FPS)
         min_frames = ceil_by_factor(ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR)
-        max_frames = floor_by_factor(
-            ele.get("max_frames", min(FPS_MAX_FRAMES, total_frames)), FRAME_FACTOR
-        )
+        max_frames = floor_by_factor(ele.get("max_frames", min(FPS_MAX_FRAMES, total_frames)), FRAME_FACTOR)
         nframes = total_frames / video_fps * fps
         nframes = min(max(nframes, min_frames), max_frames)
         nframes = round_by_factor(nframes, FRAME_FACTOR)
-    if nframes > total_frames:
-        nframes = total_frames
-    if not (FRAME_FACTOR <= nframes and nframes <= total_frames):
-        raise ValueError(
-            f"nframes should in interval [{FRAME_FACTOR}, {total_frames}], but got {nframes}."
-        )
+    nframes = min(nframes, total_frames)
+    if not (nframes >= FRAME_FACTOR and nframes <= total_frames):
+        raise ValueError(f"nframes should in interval [{FRAME_FACTOR}, {total_frames}], but got {nframes}.")
     return nframes
 
 
@@ -206,9 +194,7 @@ def _get_video_fps_fallback(video_path: str) -> float:
             return float(fps)
     except Exception:
         pass
-    logger.error(
-        f"Error getting video fps using PyAV or OpenCV, using default fallback 30.0 fps."
-    )
+    logger.error("Error getting video fps using PyAV or OpenCV, using default fallback 30.0 fps.")
 
     # Default fallback
     return 30.0
@@ -234,14 +220,12 @@ def _read_video_torchvision(
         video_path = video_path[7:]
     if version.parse(torchvision.__version__) < version.parse("0.19.0"):
         if "http://" in video_path or "https://" in video_path:
-            warnings.warn(
-                "torchvision < 0.19.0 does not support http/https video path, please upgrade to 0.19.0."
-            )
+            warnings.warn("torchvision < 0.19.0 does not support http/https video path, please upgrade to 0.19.0.")
     st = time.time()
     video, audio, info = io.read_video(
         video_path,
         start_pts=ele.get("video_start", 0.0),
-        end_pts=ele.get("video_end", None),
+        end_pts=ele.get("video_end"),
         pts_unit="sec",
         output_format="TCHW",
     )
@@ -251,7 +235,7 @@ def _read_video_torchvision(
         raise ValueError(
             f"No frames were read from video: {video_path}. "
             f"This may be caused by invalid video_start ({ele.get('video_start', 0.0)}) "
-            f"or video_end ({ele.get('video_end', None)}) parameters, or the video file may be corrupted."
+            f"or video_end ({ele.get('video_end')}) parameters, or the video file may be corrupted."
         )
     # Try to get video_fps from info, use fallback methods if not available
     if "video_fps" in info:
@@ -268,18 +252,14 @@ def _read_video_torchvision(
         num_pts = 4
         fps = 8
         nframes = int(total_frames * fps // video_fps)
-        frames_idx = (
-            torch.linspace(0, total_frames - 1, nframes).round().long().tolist()
-        )
+        frames_idx = torch.linspace(0, total_frames - 1, nframes).round().long().tolist()
 
         start_pt = int(frames_each_pts // 2)
         end_pt = int(nframes - frames_each_pts // 2 - 1)
         pts = torch.linspace(start_pt, end_pt, num_pts).round().long().tolist()
         idx = []
         for pt in pts:
-            idx.extend(
-                frames_idx[pt - frames_each_pts // 2 : pt + frames_each_pts // 2]
-            )
+            idx.extend(frames_idx[pt - frames_each_pts // 2 : pt + frames_each_pts // 2])
 
     video = video[idx]
     return video
@@ -312,9 +292,7 @@ def _read_video_decord(
     vr = decord.VideoReader(video_path)
     # TODO: support start_pts and end_pts
     if "video_start" in ele or "video_end" in ele:
-        raise NotImplementedError(
-            "not support start_pts and end_pts in decord for now."
-        )
+        raise NotImplementedError("not support start_pts and end_pts in decord for now.")
     total_frames, video_fps = len(vr), vr.get_avg_fps()
     # logger.info(f"decord:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s")
     if ele["sample_type"] == "uniform":
@@ -327,18 +305,14 @@ def _read_video_decord(
         num_pts = 4
         fps = 8
         nframes = int(total_frames * fps // video_fps)
-        frames_idx = (
-            torch.linspace(0, total_frames - 1, nframes).round().long().tolist()
-        )
+        frames_idx = torch.linspace(0, total_frames - 1, nframes).round().long().tolist()
 
         start_pt = int(frames_each_pts // 2)
         end_pt = int(nframes - frames_each_pts // 2 - 1)
         pts = torch.linspace(start_pt, end_pt, num_pts).round().long().tolist()
         idx = []
         for pt in pts:
-            idx.extend(
-                frames_idx[pt - frames_each_pts // 2 : pt + frames_each_pts // 2]
-            )
+            idx.extend(frames_idx[pt - frames_each_pts // 2 : pt + frames_each_pts // 2])
     video = vr.get_batch(idx).asnumpy()
     video = torch.tensor(video).permute(0, 3, 1, 2)  # Convert to TCHW format
     return video
@@ -364,9 +338,7 @@ def get_video_reader_backend() -> str:
     return video_reader_backend
 
 
-def fetch_video(
-    ele: dict, image_factor: int = IMAGE_FACTOR
-) -> torch.Tensor | list[Image.Image]:
+def fetch_video(ele: dict, image_factor: int = IMAGE_FACTOR) -> torch.Tensor | list[Image.Image]:
     if isinstance(ele["video"], str):
         video_reader_backend = get_video_reader_backend()
         video = VIDEO_READER_BACKENDS[video_reader_backend](ele)
@@ -401,21 +373,18 @@ def fetch_video(
             antialias=True,
         ).float()
         return video
-    else:
-        assert isinstance(ele["video"], (list, tuple))
-        process_info = ele.copy()
-        process_info.pop("type", None)
-        process_info.pop("video", None)
-        images = [
-            fetch_image(
-                {"image": video_element, **process_info}, size_factor=image_factor
-            )
-            for video_element in ele["video"]
-        ]
-        nframes = ceil_by_factor(len(images), FRAME_FACTOR)
-        if len(images) < nframes:
-            images.extend([images[-1]] * (nframes - len(images)))
-        return images
+    assert isinstance(ele["video"], (list, tuple))
+    process_info = ele.copy()
+    process_info.pop("type", None)
+    process_info.pop("video", None)
+    images = [
+        fetch_image({"image": video_element, **process_info}, size_factor=image_factor)
+        for video_element in ele["video"]
+    ]
+    nframes = ceil_by_factor(len(images), FRAME_FACTOR)
+    if len(images) < nframes:
+        images.extend([images[-1]] * (nframes - len(images)))
+    return images
 
 
 def extract_vision_info(conversations: list[dict] | list[list[dict]]) -> list[dict]:

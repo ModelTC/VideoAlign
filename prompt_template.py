@@ -122,21 +122,20 @@ def build_prompt(prompt, dimension, template_type):
 
     if template_type == "none":
         return prompt
-    elif template_type == "simple":
+    if template_type == "simple":
         return SIMPLE_PROMPT.format(
             dimension_name=dimension_name,
             dimension_description=dimension_description,
             text_prompt=prompt,
         )
-    elif template_type == "video_score":
+    if template_type == "video_score":
         return VIDEOSCORE_QUERY_PROMPT.format(
             dimension_name=dimension_name,
             dimension_description=dimension_description,
             text_prompt=prompt,
         )
-    elif template_type == "detailed_special":
+    if template_type == "detailed_special":
         return DETAILED_PROMPT_WITH_SPECIAL_TOKEN.format(text_prompt=prompt)
-    elif template_type == "detailed":
+    if template_type == "detailed":
         return DETAILED_PROMPT.format(text_prompt=prompt)
-    else:
-        raise ValueError("Invalid template type")
+    raise ValueError("Invalid template type")
